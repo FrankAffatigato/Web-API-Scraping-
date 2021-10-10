@@ -1,0 +1,52 @@
+---
+title: "Calcuting Istanbul Population Over Time"
+author: "Frank Affatigato"
+date: "10/10/2021"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+```{r error=TRUE}
+```
+
+```{r}
+# #install_tinytex(
+# force = FALSE,
+#   dir = "auto",
+#   version = "daily",
+#   repository = "ctan",
+#   extra_packages = if (is_tinytex()) tl_pkgs(),
+#   add_path = TRUE
+# )
+#You work at the UN in urban planning and are interested in tracking population growth across major metropolitan regions. You are hoping that by looking at historical population numbers that you can predict future growth and help your team make decisions about resourcing.
+
+#library(laTeX)
+
+# Write your code starting here:
+city_name = "Istanbul, Turkey"
+
+pop_year_one = 691000
+pop_year_two = 15029231
+pop_change = pop_year_two - pop_year_one
+
+#Growth Rate
+percentage_gr = (pop_change/pop_year_one) * 100
+print(percentage_gr)
+
+#Annual growth rate between 2017 and 1927
+annual_gr = percentage_gr / (2017 - 1927)
+print(annual_gr)
+
+#This chunk of code creates a function that combines all the steps listed above. 
+calculate_annual_growth <- function(year_one,year_two,pop_y1, pop_y2,city) {
+  annual_growth <- (((pop_y2 - pop_y1) / pop_y1) * 100) / (year_two-year_one)
+  message <- paste("From", year_one, "to", year_two, "the population of", city, "grew by approximately", annual_growth, "% each year.")
+  print(message)
+  return(annual_growth)
+}
+#Using function to get same result of code. 
+calculate_annual_growth(1927, 2017, 691000, 15029231, "Istanbul, Turkey")
+```
+
