@@ -1,0 +1,616 @@
+---
+title: "API Dataset Analysis"
+author: "Frank Affatigato"
+date: "12/03/2021"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Dataset Collection Using Web Scraping
+
+To create a data set, I used the BeautifulSoup package in python to web scrap the API Directory website. This package in my Python allows an analyst to parse the HTML script of a website so that information can be taken out of the tags that they are stored in. To scrape this website, I had to fun a for loop that would run through each observation on the website. There were also 850 pages or so, so I needed to run a for loop through each page so that my code could scrap each page efficiently. I chose to use a data dictionary to store my data because it is key and value storage where I could name the data by its variable name and the then store the data from the html tag within. Right before I started writing my program, I created an empty list because I knew that I was going to need it to convert the datattype into a dataframe that would be used for analysis. Once I scraped all of the data, I appended the dictionary into the empty list and converted into a dataframe. I then converted the dataframe into a csv file so it could be used for analysis in R. 
+
+```
+from bs4 import BeautifulSoup as bs
+import requests as req
+url = "https://www.programmableweb.com/apis/directory"
+
+r = req.get(url)
+c = r.content
+
+soup = bs(c, "html.parser")
+all = soup.find_all("td", {"class":"views-field views-field-pw-version-title"})
+print(soup.prettify)
+print(all)
+```
+
+```
+ l = []
+ for item in all:
+   d = {}
+   d["API Name"]=item.text.replace(' ', '')
+   d["Description"]=item.find("td", {"class","views-field views-field-search-api-excerpt views-field-field-api-description hidden-xs visible-md visible-sm col-md-8"})
+   print(d)
+ ```
+ ```
+ l = []
+ base_url = "https://www.programmableweb.com/apis/directory?page="
+ for page in range(0, 850, 1):
+   print(base_url + str(page))
+   r5 = req.get(base_url+str(page))
+   #print(r)
+   c5 = r5.content
+   soup1 = bs(c5, "html.parser")
+   first = soup1.find_all("tr", {"class":"odd views-row-first"})
+   all9 = soup1.find_all("tr")
+  for item in all9:
+     d = {}
+     try:
+       d["API Name"]=item.find("td", {"class":"views-field views-field-pw-version-title"}).text.replace(" ", "")
+     except:
+       None
+     try:
+       base_url2 = "https://www.programmableweb.com/"
+       a = item.find("a", href=True)
+       a = a["href"]
+       r2 = req.get(base_url2+str(a))
+       c2 = r2.content
+       soup2 = bs(c2, "html.parser")
+     except:
+       None
+     try:
+       d["Description"]=soup2.find("div", {"class":"api_description tabs-header_description"}).text
+     except:
+       None
+     try:
+       d["Category"]=item.find("td", {"class":"views-field
+       views-field-field-article-primary-category"}).text.replace(" ", "")
+     except:
+       None
+     try:
+       d["Followers"]=item.find("td", {"class":"views-field views-field-flag-follow-api-count"}).text.replace(" ","")
+     except:
+       None
+     try:
+       d["Versions"]=item.find("td", {"class":"views-field views-field-pw-version-links"}).text.replace(" ", "")
+     except:
+       None
+
+     soup3 = bs(c2, "html.parser")
+     all3 = soup3.find_all("ul", {"class":"nav nav-tabs menu hidden-xs listprofile-display-count-style"})
+     try:
+       d["API Tags"]=soup2.find("div", {"class":"tags"}).text.replace(" ", ", ")[1:].replace(",,", ",")
+     except:
+       None
+     #print(all3)
+     for item3 in all3:
+       #print(item3.find("li", {"class":"active"}))
+       try:
+         all3 = soup3.find("ul", {"class":"nav nav-tabs menu hidden-xs listprofile-display-count-style"})
+       except:
+         None
+       try:
+         all4 = all3.find_all('li')
+       except:
+         None
+       #print(all4)
+       for items in all4:
+         all5 = items.find("a")
+         if "Changelog" in all5:
+           d["Changlog"]=items.find("span").text.replace("(", "").replace(")", "")
+         if "Developers" in all5:
+           d["Developers"]=items.find("span").text.replace("(", "").replace(")", "")
+         if "Libraries" in all5:
+           d["Libraries"]=items.find("span").text.replace("(", "").replace(")", "")
+         if "Source Code" in all5:
+           d["Source Code"]=items.find("span").text.replace("(", "").replace(")", "")
+         if "How To" in all5:
+           d["How to"]=items.find("span").text.replace("(", "").replace(")", "")
+         if "Articles" in all5:
+           d["Articles"]=items.find("span").text.replace("(", "").replace(")", "")
+         if "SDKs" in all5:
+           d["SDKs"]=items.find("span").text.replace("(", "").replace(")", "")
+         #print(items.find("span"))
+     print(d)
+     l.append(d)
+```
+
+```
+ import pandas as pd
+ df = pd.DataFrame(l)
+ df = df.iloc[1:]
+ display(df)
+```
+# Data Cleaning and Tidying
+
+To make the dataset tidy and ready for analysis, I had to make sure that each one of my variables had its own column. I had to separate values in my "API Tag" column as there were multiple values in this row. There was also an issue where there were no spaces in the in the API name. This issue was present when I created the original dataset in python. I fixed this issue the first time using the text.replace() function but it was still present in some areas after I had concatinated all of the spreadsheets in Excel. To clean up the remaining text, I used Power Query in excel. This is an automated program in Excel where edits made in a few cells can be applied to the entire column. I also used Excel to remove any duplicates before I analyzed the dataset in R.  
+```{r, include=TRUE}
+#install.packages("openxlsx")
+#install.packages("Rtools")
+library(tidyr)
+library(dplyr)
+library(stringr)
+library(tidyverse)
+#library(readxl) this code allows IDE to read excel file. 
+library(readr)
+#write_csv(tidy_data, "tidy_API.csv")
+#help(write_csv)
+#I can also do read.csv and that works too without having to import the readr libary. 
+# Full_API_Dataset <- read_csv("Full_API_Dataset(001).csv")
+# View(Full_API_Dataset)
+# 
+# Full_API_Dataset
+# api <- as_tibble(Full_API_Dataset)
+# class(Full_API_Dataset)
+# class(api)
+# 
+# )
+# api
+# new_api <- str_split_fixed(api, "API Tags", c("col1", "col2"), ",")
+# new_api
+# new <- str_split_fixed(api$`API Tags`, ",", 4)
+# new1 <- separate(api, 'API Tags', c("API_Tag_1", "API_Tag_2", "API_Tag_3", "API_Tag_4"), ",")
+# new1
+# view(new1)
+
+#api_tidy <- new1
+#summary(api_tidy)
+#Clean_df <- gsub("([a-z])([A-Z])","\\1 \\2",api_tidy$API_Name)
+
+tidy_data <- read_csv("API _Tidy.csv")
+#tidy_data
+#?tidy_data #this code doesn't work for tibles that aren't apart of r. 
+#??tidy_data, mapping specifies where you want to put the variables. 
+
+#ggplot(data = tidy_data) #this function creates a plot. 
+
+#In these visualizations, we can see that  Before we do more visualizations on this data, we will remove all of the observations that have 0 developers so we can get a more relevant dataset for dataset for data visualization. 
+```
+
+# Visualizations and Tidy DataFrames 
+In the first couple of visualizations, you can see that the results are heavily skewed and don't reveal useful information. there are discrepancies where many observations have less that 1 developer. The number of developers are an essential component in giving this data more explanatory power. In this block, I cleaned part of the dataset again by creating new DataFrames that will exclude outliers to make the visualizations more readible. I also created a few DataFrames that only include the most prevlant categories by category. There are thousands of categories in the dataset, and I want to conduct analysis on the most popular ones. 
+```{r, include=TRUE}
+
+summary(tidy_data)
+
+view(tidy_data)
+
+#Tidy_data = the entire tidyed dataset
+#td1 = the tidy data that only includes observations where developers is greater than 1.
+#td2 = dataset that only includes observations where developers are greater than 1 and that only includes that most popular categories.   
+```
+
+## Creating New DataFrames for Analysis
+
+```{r, include=TRUE}
+
+#td1 is a dataframe where each observation includes 1 or more developers. 
+td1 <- tidy_data %>% 
+  filter(Developers >= 1)
+
+#these two chunks of code will identify the most popular categories used for the entire dataset and for the observations that have 1 or more developer.
+td1 %>% 
+group_by(Category) %>% 
+summarize(count = n()) %>% 
+arrange(desc(count))
+
+tidy_data %>% 
+group_by(Category) %>% 
+summarize(count = n()) %>% 
+arrange(desc(count))
+
+#vis1 is a dataframe that was specifically made for the first visualization. There are only a handful of observations that had more than 100 developers, which made the visulization hard to read. This dataframe only includes observations that have between 1 and 100 developers.
+vis1 <- tidy_data %>% 
+  filter(Developers >= 1 & Developers < 100) 
+
+#There was a similar issue with the visualization for followers, so this dataframe includes observations that have 1 or more developer and less than 1000 Followers. 
+vis2 <- tidy_data %>% 
+  filter(Developers >= 1 & Followers < 1000)
+
+#Includes observations of only the 10 most prevelant categories. 
+td2 <- td1 %>% 
+  filter(Category == "Social" | Category == "eCommerce" | Category == "Mapping" | Category == "Reference" | Category == "Tools" | Category == "Search" | Category == "Music" | Category == "Photos" | Category == "Government" | Category == "Other")
+
+#DataFrame that was specifically created for the third visualizations that only includes observations with more than one developer, less than 1000 followers and the 10 most popular categories. 
+vis3 <- vis2 %>% 
+  filter(Category == "Social" | Category == "eCommerce" | Category == "Mapping" | Category == "Reference" | Category == "Tools" | Category == "Search" | Category == "Music" | Category == "Photos" | Category == "Government" | Category == "Other")
+
+#td3 is a dataframe that includes observations only belonging to the most prevelant categories found in the dataset. 
+td3 <- tidy_data %>% 
+  filter(Category == "Financial" | Category == "Payments" | Category == "Messaging" | Category == "Social" | Category == "eCommerce" | Category == "Mapping" | Category == "Reference" | Category == "Tools" | Category == "Search" | Category == "Music" | Category == "Photos" | Category == "Government" | Category == "Other")
+td3
+
+#td4 is a dataframe that includes observations with 1 or more developer and the top 4 most prevelant categories in the dataset. This dataframe will be useful for topic modeling since there will be 4 topics.
+td4 <- td1 %>% 
+  filter(Category == "Social" | Category == "eCommerce" | Category == "Mapping" | Category == "Reference")
+```
+
+## API Dataset Visualizations
+
+These visualizations illustrate the numeric values of the dataset and their relationships with one another. The first visualizations is meant to show how the quantity of developers is distributed throughout the APIs, however, since most of the APIs in the dataset had 0 developers, it skewed the results and required a new dataframe that only included APIs with one or more developer. In the other visualizations, I compared numerical variables to see if there was any relationships between developers, followers, SDKs, articles, and libraries. The most significant correlation was between followers and developers. It seems that developers and followers increase with one another, however, this was not always the case as seen below. 
+
+```{r, include=TRUE}
+library(ggplot2)
+#This first visualization shows how many developers each API has for the entire dataset but most of the APIs did not have any developers, which is why we I created additional dataframes to conduct analysis on that will make the visualizations more readable. 
+ggplot(data = tidy_data) +
+  geom_bar(mapping = aes(x = Developers))
+
+#The visualization becomes more readible now that I have filtered out all of the APIs that have less than one developer.
+
+ggplot(data = vis1) +
+  geom_bar(mapping = aes(x = Developers))
+
+ggplot(data = vis2) +
+  geom_bar(mapping = aes(x = Followers))
+
+ggplot(data = td1) +
+  geom_point(mapping = aes(x = Developers, y = Libraries))
+
+ggplot(data = td2) +
+  geom_point(mapping = aes(x = Followers, y = Libraries))
+
+#We can see that there is some relationship between developers and followers in this visualization. Although the relationship does not appear to strong, it seems that number of developers increases with followers. 
+ggplot(data = vis3) +
+  geom_point(mapping = aes(x = Followers, y = Developers, color=Category))
+
+ggplot(data = vis3) +
+  geom_point(mapping = aes(x = SDKs, y = Developers, color=Category))
+
+ggplot(data = vis3) +
+  geom_point(mapping = aes(x = SDKs, y = Articles, color=Category))
+
+ggplot(data = td2) +
+  geom_point(mapping = aes(x = Developers, y = Libraries, shape=Category))
+
+ggplot(data = vis3)+
+  geom_point(mapping = aes(x = Developers, y = Followers))+
+  facet_wrap(~Category)
+
+```
+
+## Comparing Visualizations from Video Game Sales Dataset
+
+In these visualizations we can see that there is a relationship between a game’s critic score and global sales. Generally, global sales increase with the critic score. In one of the visualizations below, I have color coated the game by genre to identify which genre of game is doing best. We can see that shooters, action, and action adventure have the highest global sales. In a dataset like this one, we can see that there is a much stronger relationship between numeric variables than there is in the API dataset. 
+
+```{r, include=TRUE}
+library(readr)
+library(ggplot2)
+vg_data <- read_csv("Video game sales.csv")
+
+vg_data_pop_plats <- vg_data %>% 
+  filter(Platform == "PS2" | Platform == "PS3" | Platform == "PS4" | Platform == "PC")
+
+ggplot(data = vg_data)+
+  geom_bar(mapping = aes(x = Critic_Score))
+
+ggplot(data = vg_data)+
+  geom_point(mapping = aes(x = Critic_Score, y = Global_Sales))
+
+ggplot(data = vg_data)+
+  geom_point(mapping = aes(x = Critic_Score, y = Global_Sales, color = Genre))
+
+ggplot(data = vg_data)+
+  geom_point(mapping = aes(x = Critic_Score, y = Global_Sales, shape = Genre))
+
+ggplot(data = vg_data_pop_plats)+
+  geom_point(mapping = aes(x = Critic_Score, y = Global_Sales))+
+  facet_wrap(~Platform)
+
+```
+# Tidying Text Data
+
+In the previous section, I tidyed the numerical data so that it can be analyzed with visualization models.To analyze the text data of the description, it must be tokenized in a table where there is one value per row. Once the text data has been tokenized, I will remove the stop words a conduct analysis. Once the stop words have been removed, I will create a additional dataframe that shows the most frequently used words grouped by the most popular categories found in the original datset. 
+```{r, include=TRUE}
+library(stopwords)
+library(tidyverse)
+library(tidytext)
+library(tidyverse)
+library(tidytext)
+library(tm)
+library(dplyr)
+
+text_df <- td4 %>% 
+  transmute(Index = Index, Description = Description, Category = Category)
+text_df
+
+#This dataframe tokenizes each word in the description so it will have its own row.
+word_df <- text_df %>%
+  unnest_tokens(word, Description)
+word_df
+
+original_text <- text_df %>%
+  group_by(Category) %>%
+  mutate(linenumber = row_number(),
+         section = cumsum(str_detect(Description, 
+                                     regex("^chapter [\\divxlc]",
+                                           ignore_case = TRUE)))) %>%
+  ungroup()
+
+original_text
+  
+words_df <- original_text %>%
+  unnest_tokens(word, Description)
+
+
+data(stop_words)
+
+words_df2 <- original_text %>% 
+  unnest_tokens(word, Description)
+
+tidy_words <- words_df2 %>% 
+  anti_join(stop_words)
+
+tidy_word_count <- tidy_words %>% 
+  count(Category, word, sort = TRUE)
+
+tidy_word_count
+```
+# Word Cloud
+Word Clouds are a visualization used to display the most commonly found words in a dataset or document. The more that the word is found in a dataset, the larger the word will be. In the previous block of code I tokenized the description and created a word count that was grouped by category. To avoid having duplicate words in the word cloud, I repeated this process without grouping them into categories as the same word could be found in multiple categories 
+```{r, include=TRUE}
+
+word_only_df <- td4 %>% 
+  transmute(Index = Index, Description = Description)
+word_only_df
+
+
+word_only_df2 <- word_only_df %>%
+  unnest_tokens(word, Description)
+word_only_df2
+
+tidy_words_only <- word_only_df2 %>% 
+  anti_join(stop_words)
+
+tidy_words_only_count <- tidy_words_only %>% 
+  count(word, sort = TRUE)
+tidy_words_only_count
+
+library(wordcloud)
+wordcloud(words = tidy_words_only_count$word, freq = tidy_words_only_count$n, min.freq = 1, max.words = 100, random.order=FALSE, rot.per=0.35, colors=brewer.pal(8, "Dark2"))
+```
+
+
+# Analyzing Word Frequency
+This section includes models that display how frequently words are used to understand what the description of the API is about. I first had to tokenize the words in the description and then count them as well as the total number of words in the text. I then merged the DataFrames together to create one DataFrame that one word per row, the number of times the word is used, and the total number of words. From there the model is dividing the number of times one word is used by the total number of words to get the word frequency. After that, I grouped the word frequency by category to see how frequency specific words are used for each category. This will allow us identify what each category is about and how they are unique. Lastly, there are visualizations to identify the word frequency of the most used words for each category. 
+```{r, include=TRUE}
+
+words_df %>%
+  count(word, sort = TRUE)
+
+#This code indentifies the word frequency of the most used words in this particular dataframe. 
+
+library(ggplot2)
+
+tidy_words %>%
+  count(word, sort = TRUE) %>%
+  filter(n > 50) %>%
+  mutate(word = reorder(word, n)) %>%
+  ggplot(aes(n, word)) +
+  geom_col() +
+  labs(y = NULL)
+
+
+text_df1 <- text_df %>%
+  unnest_tokens(word, Description) %>%
+  count(Category, word, sort = TRUE)
+text_df1
+
+total_words <- text_df1 %>% 
+  group_by(Category) %>% 
+  summarize(total = sum(n))
+
+tidy_word_count_total <- left_join(tidy_word_count, total_words)
+
+tidy_word_count_total
+library(ggplot2)
+
+ggplot(tidy_word_count_total, aes(n/total, fill = Category)) +
+  geom_histogram(show.legend = FALSE) +
+  xlim(NA, 0.009) +
+  facet_wrap(~Category, ncol = 2, scales = "free_y")
+
+
+freq_by_rank <- tidy_word_count_total %>% 
+  group_by(Category) %>% 
+  mutate(rank = row_number(), 
+         `term frequency` = n/total) %>%
+  ungroup()
+freq_by_rank
+
+
+freq_by_rank %>% 
+  ggplot(aes(rank, `term frequency`, color = Category)) + 
+  geom_line(size = 1.1, alpha = 0.8, show.legend = FALSE) + 
+  scale_x_log10() +
+  scale_y_log10()
+
+category_tf_idf <- tidy_word_count_total %>%
+  bind_tf_idf(word, Category, n)
+
+category_tf_idf
+
+category_tf_idf %>%
+  select(-total) %>%
+  arrange(desc(tf_idf))
+
+library(forcats)
+
+category_tf_idf %>%
+  group_by(Category) %>%
+  slice_max(tf_idf, n = 10) %>%
+  ungroup() %>%
+  ggplot(aes(tf_idf, fct_reorder(word, tf_idf), fill = Category)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~Category, ncol = 2, scales = "free") +
+  labs(x = "tf-idf", y = NULL)
+
+```
+# Relationships Between Words
+This analysis allows us to identify associated words or words that are commonly found next to one another. It also allows us to identify if there is a sentiment with other words or the text in general. Since the API description is objective in simply describing the API, there isn't much of a sentiment with the words associated with "api".
+```{r, include=TRUE}
+library(dplyr)
+library(tidytext)
+
+word_bigrams <- text_df %>% 
+  unnest_tokens(bigram, Description, token = "ngrams", n = 2)
+word_bigrams
+
+word_bigrams %>%
+  count(bigram, sort = TRUE)
+
+text_df
+library(tidyr)
+
+bigrams_separated <- word_bigrams %>%
+  separate(bigram, c("word1", "word2"), sep = " ")
+
+bigrams_filtered <- bigrams_separated %>%
+  filter(!word1 %in% stop_words$word) %>%
+  filter(!word2 %in% stop_words$word)
+
+# new bigram counts:
+bigram_counts <- bigrams_filtered %>% 
+  count(word1, word2, sort = TRUE)
+
+
+bigrams_united <- bigrams_filtered %>%
+  unite(bigram, word1, word2, sep = " ")
+
+text_df %>%
+  unnest_tokens(trigram, Description, token = "ngrams", n = 3) %>%
+  separate(trigram, c("word1", "word2", "word3"), sep = " ") %>%
+  filter(!word1 %in% stop_words$word,
+         !word2 %in% stop_words$word,
+         !word3 %in% stop_words$word) %>%
+  count(word1, word2, word3, sort = TRUE)
+
+#Here we are identifying the most common words associated with the word api. 
+bigrams_filtered %>%
+  filter(word2 == "api") %>%
+  count(Category, word1, sort = TRUE)
+
+bigram_tf_idf <- bigrams_united %>%
+  count(Category, bigram) %>%
+  bind_tf_idf(bigram, Category, n) %>%
+  arrange(desc(tf_idf))
+
+
+bigrams_separated %>%
+  filter(word1 == "api") %>%
+  count(word1, word2, sort = TRUE)
+
+
+library(textdata)
+
+
+AFINN <- get_sentiments("afinn")
+AFINN
+
+api_words <- bigrams_separated %>%
+  filter(word1 == "api") %>%
+  inner_join(AFINN, by = c(word2 = "word")) %>%
+  count(word2, value, sort = TRUE)
+
+api_words
+
+
+library(ggplot2)
+
+api_words %>%
+  mutate(contribution = n * value) %>%
+  arrange(desc(abs(contribution))) %>%
+  head(20) %>%
+  mutate(word2 = reorder(word2, contribution)) %>%
+  ggplot(aes(n * value, word2, fill = n * value > 0)) +
+  geom_col(show.legend = FALSE) +
+  labs(x = "Sentiment value * number of occurrences",
+       y = "Words preceded by \"not\"")
+
+
+bigram_counts
+```
+
+## Word Relationship Visualizations
+These visualizations create networks of words that have the strongest relationships and that are commonly used together in the API's description.
+
+```{r, include=TRUE}
+library(igraph)
+
+bigram_graph <- bigram_counts %>%
+  filter(n > 4) %>%
+  graph_from_data_frame()
+  
+bigram_graph
+
+
+library(ggraph)
+set.seed(2017)
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1)
+
+
+set.seed(2020)
+
+a <- grid::arrow(type = "closed", length = unit(.15, "inches"))
+
+ggraph(bigram_graph, layout = "fr") +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, 'inches')) +
+  geom_node_point(color = "lightblue", size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()
+
+```
+
+
+#Topic Modeling
+This model allows us to identify a 4 topic model where we can identify the per-topic-word-probabilities in the main 4 categories that we see in the dataset that have more than 1 developer. The 4 categories being social, eCommerce, Mapping, and reference. Once the topics have been created, the next model will indentify the top terms used within each topic. Lastly, there will be a visualization that illustrates that terms within each topic. This analysis allows us to indentify the variability in each topic by the terms that are used. 
+```{r, include=TRUE}
+library(topicmodels)
+library(readr)
+library(stringr)
+library(tidytext)
+#install.packages("reshape2")
+
+# text_df <- text_df %>% 
+#   anti_join(stopwords)
+
+text_topic <- tidy_word_count %>% 
+  cast_dtm(Category, word, n)
+
+
+text_topic <- LDA(text_topic, k = 4, control = list(seed = 1234))
+
+category_topics <- tidy(text_topic, matrix = "beta")
+```
+
+## Most used terms for each topic
+```{r, include=TRUE}
+top_terms <- category_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 9) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+top_terms
+```
+
+## Topic visualizations
+```{r, include=TRUE}
+library(ggplot2)
+top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+```
+
+
+
